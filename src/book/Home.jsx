@@ -8,7 +8,8 @@ function Home() {
     const fetchHeroes = async () => {
       const options = {
         method: 'GET',
-        url: 'https://superhero-search.p.rapidapi.com/api/heroes',
+        url: 'https://superhero-search.p.rapidapi.com/api/',
+        params: { hero: 'Spiderman' },
         headers: {
           'X-RapidAPI-Key': '1a925f14e0msh40719e8bfbe1677p18c946jsn11a999176c6c',
           'X-RapidAPI-Host': 'superhero-search.p.rapidapi.com'
