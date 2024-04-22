@@ -1,122 +1,94 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Container, Row, Col, Card, Form, FormControl, Button } from 'react-bootstrap';
 
-export default function Header() {
-    const URL = "http://openlibrary.org/people/george08/lists.json";
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchResult, setSearchResult] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-   
-    useEffect(() => {
-        // Fetch all books when component mounts
-        fetchAllBooks();
-    }, []);
+const BooksPage = () => {
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
-    const fetchAllBooks = () => {
-        setLoading(true);
-        setError(null);
-        setSearchResult(null);
-
-        axios.get(URL)
-            .then(response => {
-                setSearchResult(response.data);
-                setLoading(false);
-            })
-            .catch(error => {
-                setError(error);
-                setLoading(false);
-            });
-    };
-
-    const handleSearch = () => {
-        // Don't search if the search term is empty
-        if (!searchTerm.trim()) {
-            return;
+  useEffect(() => {
+    const fetchBooks = async () => {
+      setLoading(true);
+      try {
+        let response;
+        if (query.trim() === '') {
+          // Fetch all books
+          response = await axios.get('https://openlibrary.org/works/OL45804W/editions.json');
+        } else {
+          // Fetch books based on search query
+          response = await axios.get(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}`);
         }
-    
-        setLoading(true);
-        setError(null);
-        setSearchResult(null);
-    
-        // Encode the search term before appending it to the URL
-        const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
-
-        axios.get(`${URL}?title=${encodedSearchTerm}`)
-            .then(response => {
-                setSearchResult(response.data.docs || []);
-                setLoading(false);
-            })
-            .catch(error => {
-                setError(error);
-                setLoading(false);
-            });
+        if (response.data.entries) {
+          setBooks(response.data.entries);
+        } else if (response.data.docs) {
+          setBooks(response.data.docs);
+        } else {
+          setBooks([]);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching books:', error);
+        setLoading(false);
+      }
     };
 
-    return (
-        <div className="container">
-            <div className="alert alert-info m-5" role="alert">
-                Welcome to our book search platform! Use the search bar below to find your favorite books.
-            </div>
-            <h1 className="text-center m-5 text-primary">Book Search</h1>
-            <div className="input-group mb-3">
-                <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Search for books..."
-                    aria-label="Search for books"
-                    aria-describedby="basic-addon2"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <div className="input-group-append">
-                    <button
-                        className="btn btn-primary mr-2"
-                        type="button"
-                        onClick={handleSearch}
-                        disabled={loading}
-                    >
-                        {loading ? 'Searching...' : 'Search'}
-                    </button>
-                </div>
-            </div>
-            {error && <div className="alert alert-danger">{error.message}</div>}
-            {searchTerm === '' && searchResult && (
-                <div>
-                    <h3>All Books</h3>
-                    <ul className="list-group">
-                        {Array.isArray(searchResult) ? (
-                            searchResult.map((list, index) => (
-                                <li key={index} className="list-group-item">
-                                    <strong>List Name: </strong>{list.name}<br />
-                                    <strong>Number of Books: </strong>{list.entry_count}<br />
-                                    {/* You can add more details about the list if needed */}
-                                </li>
-                            ))
-                        ) : (
-                            <li className="list-group-item">No books found</li>
-                        )}
-                    </ul>
+    fetchBooks();
+  }, [query]);
 
-                    {(searchTerm !== '' || Array.isArray(searchResult)) && (
-                        <div>
-                            <h3>Search Results</h3>
-                            <ul className="list-group">
-                                {Array.isArray(searchResult) && searchResult.length > 0 ? (
-                                    searchResult.map((book, index) => (
-                                        <li key={index} className="list-group-item">
-                                            <strong>Title: </strong>{book.title}<br />
-                                            <strong>Author(s): </strong>{book.author_name ? book.author_name.join(', ') : 'N/A'}<br />
-                                        </li>
-                                    ))
-                                ) : (
-                                    <li className="list-group-item">No results found</li>
-                                )}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
+  const handleInputChange = (event) => {
+    setQuery(event.target.value);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+  };
+
+  const toggleFavorite = (index) => {
+    const updatedBooks = [...books];
+    updatedBooks[index].isFavorite = !updatedBooks[index].isFavorite;
+    setBooks(updatedBooks);
+  };
+
+  // Sort books array to display favorite books first
+  const sortedBooks = [...books].sort((a, b) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return 0;
+  });
+
+  return (
+    <Container>
+      <h1 className="mt-4 mb-3">Books</h1>
+      <Form onSubmit={handleSubmit} className="mb-4">
+        <FormControl type="text" value={query} onChange={handleInputChange} placeholder="Search for books..." />
+      </Form>
+      {loading ? (
+        <p>Loading...</p>
+      ) : sortedBooks.length > 0 ? (
+        <Row>
+          {sortedBooks.map((book, index) => (
+            <Col key={index} xs={12} md={6} lg={4} className="mb-4">
+              <Card>
+                {book.cover && book.cover.medium && (
+                  <Card.Img variant="top" src={`https://covers.openlibrary.org/b/id/${book.cover.medium}-M.jpg`} />
+                )}
+                <Card.Body>
+                  <Card.Title>{book.title}</Card.Title>
+                  <Card.Text>{book.author_name ? `Author(s): ${book.author_name.join(', ')}` : 'Unknown Author'}</Card.Text>
+                  <Button variant={book.isFavorite ? "success" : "outline-secondary"} onClick={() => toggleFavorite(index)}>
+                    {book.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                  </Button>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      ) : (
+        <p>No books found.</p>
+      )}
+    </Container>
+  );
+};
+
+export default BooksPage;
